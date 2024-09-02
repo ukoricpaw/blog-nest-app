@@ -1,19 +1,21 @@
-import { Table, Column, HasOne, Model, PrimaryKey, AutoIncrement, AllowNull } from 'sequelize-typescript';
+import { Table, Column, HasOne, Model, PrimaryKey, AutoIncrement, AllowNull, Unique } from 'sequelize-typescript';
 import TokenEntity from './token.entity';
+import { DataTypes } from 'sequelize';
 
 @Table
 export default class UserEntity extends Model {
-  @AutoIncrement
   @PrimaryKey
-  @Column
-  public id: string;
+  @AutoIncrement
+  @Unique
+  @Column(DataTypes.INTEGER)
+  public id: number;
 
   @AllowNull(false)
-  @Column
+  @Column(DataTypes.STRING)
   public email: string;
 
   @AllowNull(false)
-  @Column
+  @Column(DataTypes.STRING)
   public password: string;
 
   @HasOne(() => TokenEntity)
