@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { TOKEN_TOKENS } from 'src/constants/token.tokens';
 import { USER_TOKENS } from 'src/constants/user.tokens';
@@ -22,6 +22,24 @@ export default class TokenService {
 
   public createRefreshToken(data: UserDto) {
     return this.jwtService.sign(data.toJSON(), { secret: process.env.REFRESH_KEY, expiresIn: '1h' });
+  }
+
+  public createTokens(data: UserDto) {
+    return { access: this.createAccessToken(data), refresh: this.createRefreshToken(data) };
+  }
+
+  public verifyRefreshToken(token: string) {
+    try {
+      const verified = this.jwtService.verify(token, { secret: process.env.REFRESH_KEY });
+      return verified as UserEntity;
+    } catch (error: any) {
+      throw new BadRequestException('Invalid token');
+    }
+  }
+
+  public async removeToken(token: string): Promise<void> {
+    const tokenInstance = await this.token.findOne({ where: { value: token } });
+    await tokenInstance?.destroy();
   }
 
   public async createOrChangeToken(tokenName: string, userId: number) {
