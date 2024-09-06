@@ -1,6 +1,17 @@
-import { Table, Column, HasOne, Model, PrimaryKey, AutoIncrement, AllowNull, Unique } from 'sequelize-typescript';
+import {
+  Table,
+  Column,
+  HasOne,
+  Model,
+  PrimaryKey,
+  AutoIncrement,
+  AllowNull,
+  Unique,
+  HasMany,
+} from 'sequelize-typescript';
 import TokenEntity from './token.entity';
 import { DataTypes } from 'sequelize';
+import ArticleEntity from './article.entity';
 
 @Table
 export default class UserEntity extends Model {
@@ -20,4 +31,7 @@ export default class UserEntity extends Model {
 
   @HasOne(() => TokenEntity)
   public token: TokenEntity;
+
+  @HasMany(() => ArticleEntity)
+  public articles: ArticleEntity[];
 }
