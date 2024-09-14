@@ -4,6 +4,7 @@ import { USER_TOKENS } from 'src/constants/user.tokens';
 import CreateUserDto from 'src/dtos/create-user.dto';
 import TokenEntity from 'src/models/token.entity';
 import UserEntity from 'src/models/user.entity';
+import { USER_ROLES } from 'src/types/user-roles';
 
 @Injectable()
 export default class UserRepo {
@@ -17,6 +18,6 @@ export default class UserRepo {
   }
 
   async createUser(dto: CreateUserDto): Promise<UserEntity> {
-    return this.user.create({ email: dto.email, password: dto.password });
+    return this.user.create({ email: dto.email, password: dto.password, avatarUrl: null, roleId: USER_ROLES.USER });
   }
 }

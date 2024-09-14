@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { TOKEN_TOKENS } from 'src/constants/token.tokens';
 import { USER_TOKENS } from 'src/constants/user.tokens';
@@ -7,7 +7,7 @@ import TokenEntity from 'src/models/token.entity';
 import UserEntity from 'src/models/user.entity';
 import TokenRepo from 'src/repositories/token/token.repository';
 
-@Injectable()
+@Injectable({})
 export default class TokenService {
   constructor(
     private jwtService: JwtService,
@@ -33,7 +33,16 @@ export default class TokenService {
       const verified = this.jwtService.verify(token, { secret: process.env.REFRESH_KEY });
       return verified as UserEntity;
     } catch (error: any) {
-      throw new BadRequestException('Invalid token');
+      throw new UnauthorizedException('Unauthorized');
+    }
+  }
+
+  public verifyAccessToken(token: string) {
+    try {
+      const verified = this.jwtService.verify(token, { secret: process.env.ACCESS_KEY });
+      return verified as UserEntity;
+    } catch (error: any) {
+      throw new UnauthorizedException('Unauthorized');
     }
   }
 

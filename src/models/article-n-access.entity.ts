@@ -13,7 +13,7 @@ import UserEntity from './user.entity';
 import PermissionEntity from './permission.entity';
 
 @Table
-export default class ArticleAndAccess extends Model {
+export default class ArticleAndAccessEntity extends Model {
   @PrimaryKey
   @AutoIncrement
   @AllowNull(false)

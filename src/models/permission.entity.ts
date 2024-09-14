@@ -1,4 +1,5 @@
-import { AllowNull, AutoIncrement, Column, Model, PrimaryKey, Table } from 'sequelize-typescript';
+import { AllowNull, AutoIncrement, Column, HasMany, Model, PrimaryKey, Table } from 'sequelize-typescript';
+import ArticleAndAccessEntity from './article-n-access.entity';
 
 @Table
 export default class PermissionEntity extends Model {
@@ -11,4 +12,6 @@ export default class PermissionEntity extends Model {
   @AllowNull(false)
   @Column
   public name: string;
+  @HasMany(() => ArticleAndAccessEntity)
+  public articleAndAccess: ArticleAndAccessEntity[];
 }

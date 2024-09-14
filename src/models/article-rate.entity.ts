@@ -1,40 +1,38 @@
 import {
-  Table,
-  Model,
-  PrimaryKey,
-  AutoIncrement,
   AllowNull,
+  AutoIncrement,
+  BelongsTo,
   Column,
   ForeignKey,
-  BelongsTo,
-  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
 } from 'sequelize-typescript';
 import ArticleEntity from './article.entity';
 import UserEntity from './user.entity';
-import CommentRateEntity from './comment-rate.entity';
 
 @Table
-export default class CommentEntity extends Model {
-  @PrimaryKey
+export default class ArticleRateEntity extends Model {
   @AutoIncrement
   @AllowNull(false)
+  @PrimaryKey
   @Column
-  public id: number;
+  public articleRateId: number;
 
   @ForeignKey(() => ArticleEntity)
   @Column
   public articleId: number;
 
+  @AllowNull(false)
+  @Column
+  public rate: 0 | 1;
+
   @BelongsTo(() => ArticleEntity)
   public article: ArticleEntity;
 
   @ForeignKey(() => UserEntity)
-  @Column
   public userId: number;
 
   @BelongsTo(() => UserEntity)
   public user: UserEntity;
-
-  @HasMany(() => CommentRateEntity)
-  public CommentRateEntitys: CommentRateEntity[];
 }

@@ -12,6 +12,8 @@ import {
 import TokenEntity from './token.entity';
 import { DataTypes } from 'sequelize';
 import ArticleEntity from './article.entity';
+import ArticleRateEntity from './article-rate.entity';
+import CommentRateEntity from './comment-rate.entity';
 
 @Table
 export default class UserEntity extends Model {
@@ -20,6 +22,12 @@ export default class UserEntity extends Model {
   @Unique
   @Column(DataTypes.INTEGER)
   public id: number;
+
+  @Column
+  public avatarUrl: string;
+
+  @Column
+  public roleId: number;
 
   @AllowNull(false)
   @Column(DataTypes.STRING)
@@ -34,4 +42,10 @@ export default class UserEntity extends Model {
 
   @HasMany(() => ArticleEntity)
   public articles: ArticleEntity[];
+
+  @HasMany(() => ArticleRateEntity)
+  public articleRates: ArticleRateEntity[];
+
+  @HasMany(() => CommentRateEntity)
+  public CommentRateEntitys: CommentRateEntity[];
 }
