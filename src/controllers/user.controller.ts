@@ -41,7 +41,8 @@ export default class UserController {
   @Get('/refresh')
   public async refresh(@Req() req: Request, @Res() res: Response) {
     const data = this.tokenService.verifyRefreshToken(req.cookies.refreshToken);
-    const response = await this.getUserResponse(data, res);
+    const user = await this.userService.checkExistingUser(data.email);
+    const response = await this.getUserResponse(user, res);
     this.cookieService.saveTokens(res, { access: response.access, refresh: response.refresh });
     res.json(response);
   }

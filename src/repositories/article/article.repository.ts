@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Attributes, FindAndCountOptions, Op } from 'sequelize';
+import { Attributes, FindAndCountOptions, Includeable, Op } from 'sequelize';
 import { ARTICLE_TOKENS } from 'src/constants/article.tokens';
 import Article from 'src/dtos/article.dto';
 import ArticleAndAccessEntity from 'src/models/article-n-access.entity';
@@ -9,6 +9,9 @@ import ArticleEntity from 'src/models/article.entity';
 import CommentEntity from 'src/models/comment.entity';
 import PermissionEntity from 'src/models/permission.entity';
 import { ActiveTypes } from 'src/types/active-types';
+import { Request } from 'src/types/overwritten-request';
+import { USER_ROLES } from 'src/types/user-roles';
+import { PERMISSIONS } from 'src/utils/define-permissions';
 
 @Injectable()
 export default class ArticleRepo {
@@ -20,6 +23,31 @@ export default class ArticleRepo {
     @Inject(ARTICLE_TOKENS.COMMENT_REPO) private comment: typeof CommentEntity,
     @Inject(ARTICLE_TOKENS.ARTICLE_TYPE_REPO) private article_tags: typeof ArticleTypeEntity,
   ) {}
+
+  public async createRole(articleId: number, permissionName: PERMISSIONS, userId: number) {
+    const permission = await this.permission.findOne({ where: { name: permissionName } });
+    await this.access.create({ articleId, permissionId: permission.id, userId });
+  }
+
+  public async deleteArticleTags(articleId: number) {
+    return ArticleAndTypeEntity.destroy({ where: { articleId } });
+  }
+
+  private getAccessOfArticle(userId?: number, isRequired?: boolean) {
+    return {
+      model: ArticleAndAccessEntity,
+      as: 'articleAndAccess',
+      required: isRequired || false,
+      where: {
+        userId: {
+          [Op.in]: userId ? [userId] : [],
+        },
+      },
+      attributes: {
+        exclude: ['createdAt', 'updatedAt'],
+      },
+    };
+  }
 
   private getSearchByCapitalize(search: string, key: string) {
     return {
@@ -67,6 +95,12 @@ export default class ArticleRepo {
     return result;
   }
 
+  public async deleteArticleById(id: number) {
+    const article = await this.article.findOne({ where: { id } });
+    await article?.destroy();
+    return article;
+  }
+
   public async getArticleById(id: number) {
     return this.article.findOne({
       where: { id },
@@ -74,18 +108,54 @@ export default class ArticleRepo {
     });
   }
 
-  public async getArticles(search: string, tags: number[], offset: number, limit: number) {
-    const articles = await this.article.findAndCountAll({
-      where: { ...this.getSearchByCapitalize(search, 'title'), isPrivate: false },
+  public async getArticles(
+    search: string,
+    tags: number[],
+    offset: number,
+    limit: number,
+    userOptions: {
+      user: Request['user'] | undefined;
+      isPrivate?: boolean;
+      forUser?: boolean;
+    },
+  ) {
+    const isUserOptionsWithPrivateProperty = userOptions.forUser && userOptions.isPrivate !== undefined;
+    const articlesQuery: FindAndCountOptions<Attributes<any>> = {
+      where: {
+        ...this.getSearchByCapitalize(search, 'title'),
+        isPrivate: {
+          [Op.in]:
+            !isUserOptionsWithPrivateProperty || userOptions.user?.roleId === USER_ROLES.MODERATOR
+              ? [true, false]
+              : [isUserOptionsWithPrivateProperty ? userOptions.isPrivate : false],
+        },
+      },
       include: [this.getTagsOfArticleByRelations(tags)],
       distinct: true,
       offset,
       limit,
-    });
+    };
+
+    if (userOptions.forUser) {
+      articlesQuery.where = {
+        [Op.or]: [{ ...articlesQuery.where }, { ...articlesQuery.where, userId: userOptions.user.id }],
+      };
+      articlesQuery.where = {
+        ...articlesQuery.where,
+        isPrivate: userOptions.isPrivate === undefined ? { [Op.in]: [true, false] } : userOptions.isPrivate,
+      };
+      (articlesQuery.include as Includeable[]).push(this.getAccessOfArticle(userOptions.user.id, true));
+      console.log(articlesQuery);
+    }
+
+    const articles = await this.article.findAndCountAll(articlesQuery);
 
     const articlesWithFullInfo = await Promise.all(
       articles.rows.map(a =>
-        this.article.findOne({ where: { id: a.id }, include: [this.getTagsOfArticleByRelations()] }),
+        this.article.findOne({
+          where: { id: a.id },
+          include: [this.getTagsOfArticleByRelations(), this.getAccessOfArticle(userOptions.user?.id)],
+        }),
       ),
     );
     return { count: articles.count, rows: articlesWithFullInfo };
@@ -107,15 +177,16 @@ export default class ArticleRepo {
   }
 
   public async getUserPermissionOfArticle(userId: number, articleId: number) {
-    return this.access.findAndCountAll({
+    return this.access.findOne({
       where: { articleId, userId },
       attributes: {
-        exclude: ['articleId', 'userId'],
+        exclude: ['articleId', 'userId', 'createdAt', 'updatedAt'],
       },
       include: [
         {
           model: PermissionEntity,
           as: 'permission',
+          attributes: { exclude: ['createdAt', 'updatedAt'] },
         },
       ],
     });

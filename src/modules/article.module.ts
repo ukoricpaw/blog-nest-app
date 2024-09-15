@@ -8,16 +8,26 @@ import TokenModule from './token.module';
 import FirebaseModule from 'src/database/firebase.module';
 import IsUserValidated from 'src/middleware/is-user-validated';
 import ImageController from 'src/controllers/image.controller';
+import CommentController from 'src/controllers/comment.controller';
 
 @Module({
-  controllers: [ArticleController, ImageController],
+  controllers: [ArticleController, ImageController, CommentController],
   providers: [ArticleRepo, ArticleService, CheckUserMiddleware],
   imports: [DatabaseModule, TokenModule, FirebaseModule],
 })
 export default class ArticleModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(CheckUserMiddleware).forRoutes({ path: 'article/:id', method: RequestMethod.GET });
+    consumer
+      .apply(CheckUserMiddleware)
+      .forRoutes({ path: 'article/:id', method: RequestMethod.GET }, { path: 'article', method: RequestMethod.GET });
 
-    consumer.apply(IsUserValidated).forRoutes({ path: 'article', method: RequestMethod.POST });
+    consumer
+      .apply(IsUserValidated)
+      .forRoutes(
+        { path: 'article', method: RequestMethod.POST },
+        { path: 'article/:id', method: RequestMethod.DELETE },
+        { path: 'article/:id', method: RequestMethod.PATCH },
+        { path: 'article/user', method: RequestMethod.GET },
+      );
   }
 }

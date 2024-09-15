@@ -1,7 +1,7 @@
 import { isFieldExistOtherwiseCreate } from './field-existance';
 import PermissionEntity from 'src/models/permission.entity';
 
-enum PERMISSIONS {
+export enum PERMISSIONS {
   OWNER = 'OWNER',
   MODIFY = 'MODIFY',
   READ = 'READ',
