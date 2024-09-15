@@ -4,14 +4,17 @@ import { ARTICLE_TOKENS } from 'src/constants/article.tokens';
 import Article from 'src/dtos/article.dto';
 import ArticleAndAccessEntity from 'src/models/article-n-access.entity';
 import ArticleAndTypeEntity from 'src/models/article-n-type.entity';
+import ArticleRateEntity from 'src/models/article-rate.entity';
 import ArticleTypeEntity from 'src/models/article-type.entity';
 import ArticleEntity from 'src/models/article.entity';
 import CommentEntity from 'src/models/comment.entity';
 import PermissionEntity from 'src/models/permission.entity';
 import { ActiveTypes } from 'src/types/active-types';
 import { Request } from 'src/types/overwritten-request';
+import { RateRequest } from 'src/types/rate-request';
 import { USER_ROLES } from 'src/types/user-roles';
 import { PERMISSIONS } from 'src/utils/define-permissions';
+import { v4 } from 'uuid';
 
 @Injectable()
 export default class ArticleRepo {
@@ -22,15 +25,38 @@ export default class ArticleRepo {
     @Inject(ARTICLE_TOKENS.ARTICLE_PERMISSION_REPO) private permission: typeof PermissionEntity,
     @Inject(ARTICLE_TOKENS.COMMENT_REPO) private comment: typeof CommentEntity,
     @Inject(ARTICLE_TOKENS.ARTICLE_TYPE_REPO) private article_tags: typeof ArticleTypeEntity,
+    @Inject(ARTICLE_TOKENS.ARTICLE_RATE_REPO) private article_rate: typeof ArticleRateEntity,
   ) {}
 
+  public async getPermissionByName(permissionName: PERMISSIONS) {
+    return this.permission.findOne({ where: { name: permissionName } });
+  }
+
   public async createRole(articleId: number, permissionName: PERMISSIONS, userId: number) {
-    const permission = await this.permission.findOne({ where: { name: permissionName } });
+    const permission = await this.getPermissionByName(permissionName);
     await this.access.create({ articleId, permissionId: permission.id, userId });
   }
 
   public async deleteArticleTags(articleId: number) {
-    return ArticleAndTypeEntity.destroy({ where: { articleId } });
+    return this.article_n_tags.destroy({ where: { articleId } });
+  }
+
+  public async addOrChangeRateToArticle(rate: RateRequest, articleId: number, userId: number) {
+    const articleRate = await this.article_rate.findOne({ where: { userId, articleId } });
+    if (rate.action === 'ADD') {
+      if (!articleRate) {
+        await this.article_rate.create({ userId, articleId, rate: rate.rate });
+      } else if (articleRate && articleRate.rate !== rate.rate) {
+        articleRate.rate = rate.rate;
+        await articleRate.save();
+      }
+    } else if (articleRate && rate.action === 'DELETE') {
+      await articleRate.destroy();
+    }
+    return {
+      action: rate.action,
+      rate: rate.rate,
+    };
   }
 
   private getAccessOfArticle(userId?: number, isRequired?: boolean) {
@@ -108,6 +134,10 @@ export default class ArticleRepo {
     });
   }
 
+  public async getArticleByLink(link: string) {
+    return this.article.findOne({ where: { inviteLink: link } });
+  }
+
   public async getArticles(
     search: string,
     tags: number[],
@@ -130,6 +160,7 @@ export default class ArticleRepo {
               : [isUserOptionsWithPrivateProperty ? userOptions.isPrivate : false],
         },
       },
+      attributes: { exclude: ['inviteLink'] },
       include: [this.getTagsOfArticleByRelations(tags)],
       distinct: true,
       offset,
@@ -162,7 +193,8 @@ export default class ArticleRepo {
   }
 
   public async createArticle(article: Article) {
-    return this.article.create({ ...article, qtyOfViews: 0, articleActiveType: ActiveTypes.MODERATION });
+    const inviteLink = v4();
+    return this.article.create({ ...article, qtyOfViews: 0, articleActiveType: ActiveTypes.MODERATION, inviteLink });
   }
 
   public async createRelatedArticleTags(tags: number[], articleId: number) {

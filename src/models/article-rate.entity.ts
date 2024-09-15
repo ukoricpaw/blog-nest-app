@@ -31,6 +31,7 @@ export default class ArticleRateEntity extends Model {
   public article: ArticleEntity;
 
   @ForeignKey(() => UserEntity)
+  @Column
   public userId: number;
 
   @BelongsTo(() => UserEntity)

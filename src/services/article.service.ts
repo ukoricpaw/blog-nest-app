@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import FirebaseRepo from 'src/database/firebase.repository';
 import Article from 'src/dtos/article.dto';
 import CreateArticleDto, { PatchArticleDto } from 'src/dtos/create-article.dto';
+import PermissionDto from 'src/dtos/permission.dto';
 import ArticleAndAccessEntity from 'src/models/article-n-access.entity';
 import ArticleEntity from 'src/models/article.entity';
 import ArticleRepo from 'src/repositories/article/article.repository';
@@ -16,8 +17,19 @@ export default class ArticleService {
     private articleRepo: ArticleRepo,
     private firebaseRepo: FirebaseRepo,
   ) {}
+
+  private async checkIsUserOwner(userId: number, articleId: number) {
+    const userRole = await this.articleRepo.getUserPermissionOfArticle(userId, articleId);
+    if (userRole?.permission?.name !== PERMISSIONS.OWNER) throw new ForbiddenException('forbidden');
+  }
+
   public checkIsArticleExist(article: ArticleEntity | null) {
     if (!article) throw new BadRequestException("Article doesn't exist");
+  }
+
+  public checkArticleIsPrivate(article: ArticleEntity | null) {
+    if (!article) throw new BadRequestException('Bad request');
+    if (!article.isPrivate) throw new ForbiddenException('Forbidden');
   }
 
   public async checkRolesOfArticle(article: ArticleEntity, user: Request['user'] | undefined) {
@@ -32,6 +44,31 @@ export default class ArticleService {
     }
     if (article.isPrivate) throw new ForbiddenException('Article is private');
     return null;
+  }
+
+  public async setPermissionToArticle(permissionDto: PermissionDto, articleId: number, userId: number) {
+    await this.checkIsUserOwner(userId, articleId);
+    const existedRole = await this.articleRepo.getUserPermissionOfArticle(permissionDto.userId, articleId);
+    if (existedRole) {
+      const permission = await this.articleRepo.getPermissionByName(permissionDto.permission);
+      existedRole.permissionId = permission.id;
+      await existedRole.save();
+      return existedRole;
+    }
+    return await this.articleRepo.createRole(articleId, permissionDto.permission, userId);
+  }
+
+  public async deletePermissionFromArticle(articleId: number, userId: number, reqUserId: number) {
+    await this.checkIsUserOwner(reqUserId, articleId);
+    const existedRole = await this.articleRepo.getUserPermissionOfArticle(userId, articleId);
+    if (!existedRole) throw new BadRequestException('Permission of corresponding user not found');
+    await existedRole.destroy();
+    return { message: 'User was removed' };
+  }
+
+  public async incrementQtyOfViews(article: ArticleEntity) {
+    article.qtyOfViews += 1;
+    await article.save();
   }
 
   public async modifyArticle(

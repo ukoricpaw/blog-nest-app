@@ -24,10 +24,14 @@ export default class ArticleModule implements NestModule {
     consumer
       .apply(IsUserValidated)
       .forRoutes(
+        { path: 'article/:id/rate', method: RequestMethod.POST },
         { path: 'article', method: RequestMethod.POST },
         { path: 'article/:id', method: RequestMethod.DELETE },
         { path: 'article/:id', method: RequestMethod.PATCH },
         { path: 'article/user', method: RequestMethod.GET },
+        { path: 'invite/:link', method: RequestMethod.GET },
+        { path: 'article/:id/permission', method: RequestMethod.POST },
+        { path: 'article/:id/permission/:userId', method: RequestMethod.DELETE },
       );
   }
 }

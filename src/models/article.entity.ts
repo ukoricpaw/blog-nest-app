@@ -46,6 +46,9 @@ export default class ArticleEntity extends Model {
   public qtyOfViews: number;
 
   @Column
+  public inviteLink: string;
+
+  @Column
   public articleActiveType: number;
 
   @BelongsTo(() => UserEntity)

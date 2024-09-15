@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -15,12 +16,14 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import CreateArticleDto, { PatchArticleDto } from 'src/dtos/create-article.dto';
+import PermissionDto from 'src/dtos/permission.dto';
 import ArticleAndAccessEntity from 'src/models/article-n-access.entity';
 import ToCapitalize from 'src/pipes/to-capitalize';
 import ToNumberPipe from 'src/pipes/to-number.pipe';
 import ArticleRepo from 'src/repositories/article/article.repository';
 import ArticleService from 'src/services/article.service';
 import { Request } from 'src/types/overwritten-request';
+import { RateRequest } from 'src/types/rate-request';
 import { PERMISSIONS } from 'src/utils/define-permissions';
 import { getOffsetAndTagsFromRequest } from 'src/utils/get-offset-n-tags';
 
@@ -64,23 +67,53 @@ export default class ArticleController {
     if (article) {
       role = await this.articleService.checkRolesOfArticle(article, req.user);
     }
-    return { article, role };
+    article.inviteLink = role && role.permission.name === PERMISSIONS.OWNER ? article.inviteLink : null;
+    return {
+      article,
+      role,
+    };
   }
 
   @Get('invite/:link')
-  public async inviteToCheckPrivateArticle() {}
+  public async inviteToPrivateArticle(@Param('link') link: string, @Req() req: Request) {
+    const article = await this.articleRepo.getArticleByLink(link);
+    this.articleService.checkArticleIsPrivate(article);
+    const roleOfUser = await this.articleRepo.getUserPermissionOfArticle(req.user.id, article.id);
+    if (roleOfUser) throw new BadRequestException('User already has permission');
+    await this.articleRepo.createRole(article.id, PERMISSIONS.READ, req.user.id);
+    return { message: 'Invitation accepted' };
+  }
 
   @Post(':id/permission')
-  public async setPermissionToArticle() {}
+  public async setPermissionToArticle(
+    @Body() permissionDto: PermissionDto,
+    @Param('id') articleId: number,
+    @Req() req: Request,
+  ) {
+    return this.articleService.setPermissionToArticle(permissionDto, articleId, req.user.id);
+  }
 
-  @Delete(':id/permission')
-  public async deletePermissionFromArticle() {}
+  @Delete(':id/permission/:userId')
+  public async deletePermissionFromArticle(
+    @Param('id', ToNumberPipe) articleId: number,
+    @Param('userId', ToNumberPipe) userId: number,
+    @Req() req: Request,
+  ) {
+    return this.articleService.deletePermissionFromArticle(articleId, userId, req.user.id);
+  }
 
   @Get(':id/views')
-  public async addViewToArticle() {}
+  public async addViewToArticle(@Param('id') articleId: number) {
+    const article = await this.articleRepo.getArticleById(articleId);
+    await this.articleService.incrementQtyOfViews(article);
+    return { message: 'viewed' };
+  }
 
-  @Patch(':id/rate')
-  public async rateArticle() {}
+  @Post(':id/rate')
+  public async rateArticle(@Param('id') articleId: number, @Body() rate: RateRequest, @Req() req: Request) {
+    console.log(req.user);
+    return this.articleRepo.addOrChangeRateToArticle(rate, articleId, req.user.id);
+  }
 
   @Patch(':id')
   public async modifyArticle(
