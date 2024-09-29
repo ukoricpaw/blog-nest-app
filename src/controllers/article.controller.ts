@@ -121,7 +121,7 @@ export default class ArticleController {
     @UploadedFile(
       new ParseFilePipe({
         fileIsRequired: false,
-        validators: [new MaxFileSizeValidator({ maxSize: 100_000 })],
+        validators: [new MaxFileSizeValidator({ maxSize: 10_000_000 })],
       }),
     )
     thumbnail: Express.Multer.File,
@@ -156,7 +156,7 @@ export default class ArticleController {
     @Req() req: Request,
     @UploadedFile(
       new ParseFilePipe({
-        validators: [new MaxFileSizeValidator({ maxSize: 100_000 })],
+        validators: [new MaxFileSizeValidator({ maxSize: 10_000_000 })],
       }),
     )
     thumbnail: Express.Multer.File,
