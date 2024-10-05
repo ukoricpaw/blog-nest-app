@@ -59,6 +59,11 @@ export default class ArticleController {
     });
   }
 
+  @Get('search')
+  public async searchArticles(@Query('title') search: string) {
+    return this.articleRepo.getArticlesBySearch(search);
+  }
+
   @Get(':id')
   public async getSingleArticle(@Param('id', ToNumberPipe) id: number, @Req() req: Request) {
     const article = await this.articleRepo.getArticleById(id);
@@ -144,10 +149,18 @@ export default class ArticleController {
     @Query('tags') tags: string,
     @Query('page') page: number,
     @Query('limit') limit: number,
+    @Query('sort') sort: 'desc' | 'asc',
     @Req() req: Request,
   ) {
     const { offset, resTags, resLimit } = getOffsetAndTagsFromRequest(page, limit, tags);
-    return this.articleRepo.getArticles(search ?? '', resTags, offset, resLimit, { user: req.user });
+    return this.articleRepo.getArticles(
+      search ?? '',
+      resTags,
+      offset,
+      resLimit,
+      { user: req.user },
+      sort?.toUpperCase() as 'DESC' | 'ASC',
+    );
   }
 
   @Post()

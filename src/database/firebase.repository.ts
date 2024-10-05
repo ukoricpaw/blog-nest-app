@@ -6,6 +6,10 @@ import { FIREBASE_TOKENS } from 'src/constants/firebase.tokens';
 export default class FirebaseRepo {
   constructor(@Inject(FIREBASE_TOKENS.REPO) private storage: FirebaseStorage) {}
 
+  metadata = {
+    contentType: 'image/png',
+  };
+
   private createRef(uuid: string) {
     return ref(this.storage, `images/${uuid}.jpg`);
   }
@@ -16,7 +20,7 @@ export default class FirebaseRepo {
 
   public async uploadFile(uuid: string, buffer: Buffer): Promise<UploadResult> {
     const ref = this.createRef(uuid);
-    return uploadBytes(ref, buffer, { contentType: 'images/jpeg' });
+    return uploadBytes(ref, buffer, this.metadata);
   }
 
   public async deleteFile(uuid: string): Promise<void> {

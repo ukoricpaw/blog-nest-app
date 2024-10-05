@@ -15,6 +15,7 @@ import { RateRequest } from 'src/types/rate-request';
 import { USER_ROLES } from 'src/types/user-roles';
 import { PERMISSIONS } from 'src/utils/define-permissions';
 import { v4 } from 'uuid';
+import UserEntity from '../../models/user.entity';
 
 @Injectable()
 export default class ArticleRepo {
@@ -35,6 +36,30 @@ export default class ArticleRepo {
   public async createRole(articleId: number, permissionName: PERMISSIONS, userId: number) {
     const permission = await this.getPermissionByName(permissionName);
     await this.access.create({ articleId, permissionId: permission.id, userId });
+  }
+
+  public async getArticlesBySearch(search: string) {
+    if (!search)
+      return {
+        count: 0,
+        rows: [],
+      };
+    return this.article.findAndCountAll({
+      where: { title: { [Op.like]: `%${search}%` } },
+      attributes: {
+        exclude: [
+          'articleActiveType',
+          'createdAt',
+          'updatedAt',
+          'isPrivate',
+          'userId',
+          'content',
+          'thumbnail',
+          'inviteLink',
+          'qtyOfViews',
+        ],
+      },
+    });
   }
 
   public async deleteArticleTags(articleId: number) {
@@ -130,7 +155,16 @@ export default class ArticleRepo {
   public async getArticleById(id: number) {
     return this.article.findOne({
       where: { id },
-      include: [this.getTagsOfArticleByRelations()],
+      include: [
+        this.getTagsOfArticleByRelations(),
+        {
+          model: UserEntity,
+          as: 'user',
+          attributes: {
+            exclude: ['password', 'createdAt', 'updatedAt', 'roleId'],
+          },
+        },
+      ],
     });
   }
 
@@ -148,6 +182,7 @@ export default class ArticleRepo {
       isPrivate?: boolean;
       forUser?: boolean;
     },
+    sort: 'DESC' | 'ASC' = 'DESC',
   ) {
     const isUserOptionsWithPrivateProperty = userOptions.forUser && userOptions.isPrivate !== undefined;
     const articlesQuery: FindAndCountOptions<Attributes<any>> = {
@@ -160,7 +195,7 @@ export default class ArticleRepo {
               : [isUserOptionsWithPrivateProperty ? userOptions.isPrivate : false],
         },
       },
-      attributes: { exclude: ['inviteLink'] },
+      order: [['createdAt', sort]],
       include: [this.getTagsOfArticleByRelations(tags)],
       distinct: true,
       offset,
@@ -185,7 +220,18 @@ export default class ArticleRepo {
       articles.rows.map(a =>
         this.article.findOne({
           where: { id: a.id },
-          include: [this.getTagsOfArticleByRelations(), this.getAccessOfArticle(userOptions.user?.id)],
+          attributes: { exclude: ['inviteLink', 'content'] },
+          include: [
+            this.getTagsOfArticleByRelations(),
+            this.getAccessOfArticle(userOptions.user?.id),
+            {
+              model: UserEntity,
+              as: 'user',
+              attributes: {
+                exclude: ['password', 'createdAt', 'updatedAt', 'roleId'],
+              },
+            },
+          ],
         }),
       ),
     );
