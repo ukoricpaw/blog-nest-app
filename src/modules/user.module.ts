@@ -9,10 +9,11 @@ import CheckAuthGuard from 'src/guards/check-auth.guard';
 import CheckAccessTokenGuard from 'src/guards/check-access-token.guard';
 import IsUserValidated from '../middleware/is-user-validated';
 import FirebaseModule from '../database/firebase.module';
+import ArticleRepo from '../repositories/article/article.repository';
 
 @Module({
   controllers: [UserController],
-  providers: [UserService, IsUserValidated, UserRepo, CheckAuthGuard, CheckAccessTokenGuard],
+  providers: [UserService, IsUserValidated, UserRepo, CheckAuthGuard, CheckAccessTokenGuard, ArticleRepo],
   imports: [TokenModule, DatabaseModule, CookieModule, FirebaseModule],
 })
 export default class UserModule implements NestModule {

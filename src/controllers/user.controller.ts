@@ -7,6 +7,7 @@ import {
   ParseFilePipe,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   UploadedFile,
@@ -24,6 +25,8 @@ import CookieService from 'src/services/cookie.service';
 import TokenService from 'src/services/token.service';
 import UserService from 'src/services/user.service';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { getOffsetAndTagsFromRequest } from '../utils/get-offset-n-tags';
+import ArticleRepo from '../repositories/article/article.repository';
 
 @Controller({
   path: '/user',
@@ -34,6 +37,7 @@ export default class UserController {
     private userService: UserService,
     private tokenService: TokenService,
     private cookieService: CookieService,
+    private articleRepo: ArticleRepo,
   ) {}
 
   public async getUserResponse(data: UserEntity, res: Response) {
@@ -84,6 +88,23 @@ export default class UserController {
     return this.userService.getUserById(id);
   }
 
+  @Get('/:id/articles')
+  public async getUserArticles(
+    @Param('id') id: string,
+    @Query('search') search: string,
+    @Query('tags') tags: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('is-private') isPrivate: boolean,
+    @Req() req: OverwrittenRequest,
+  ) {
+    const { offset, resTags, resLimit } = getOffsetAndTagsFromRequest(page, limit, tags);
+    return this.articleRepo.getArticles(search ?? '', resTags, offset, resLimit, {
+      user: req.user?.id == Number(id) ? req.user : ({ id } as any),
+      isPrivate: req.user?.id == Number(id) ? isPrivate : false,
+      forUser: true,
+    });
+  }
   @Post('/login')
   public async login(@Body() body: CreateUserDto, @Res() res: Response) {
     const user = await this.userService.login(body);
