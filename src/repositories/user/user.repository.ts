@@ -17,6 +17,10 @@ export default class UserRepo {
     return this.user.findOne<UserEntity>({ where: { email } });
   }
 
+  async findById(id: number) {
+    return this.user.findOne<UserEntity>({ where: { id } });
+  }
+
   async createUser(dto: CreateUserDto): Promise<UserEntity> {
     return this.user.create({ email: dto.email, password: dto.password, avatarUrl: null, roleId: USER_ROLES.USER });
   }

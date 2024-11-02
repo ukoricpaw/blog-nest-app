@@ -40,7 +40,7 @@ export const databaseProviders = [
         ArticleRateEntity,
       ]);
 
-      await sequelize.sync();
+      await sequelize.sync({ alter: true });
       defineTypes();
       definePermissions();
       return sequelize;

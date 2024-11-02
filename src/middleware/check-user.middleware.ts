@@ -12,6 +12,7 @@ export default class CheckUserMiddleware implements NestMiddleware {
     let data: UserEntity = null;
     try {
       data = this.tokenService.verifyAccessToken(accessToken);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err: any) {}
     req.user = data;
     next();

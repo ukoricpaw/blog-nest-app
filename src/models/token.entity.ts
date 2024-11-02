@@ -10,6 +10,7 @@ import {
   Unique,
 } from 'sequelize-typescript';
 import UserEntity from './user.entity';
+import { DataTypes } from 'sequelize';
 
 @Table
 export default class TokenEntity extends Model {
@@ -19,7 +20,7 @@ export default class TokenEntity extends Model {
   @Column
   public id: number;
 
-  @Column
+  @Column(DataTypes.TEXT)
   public value: string;
 
   @AllowNull(false)

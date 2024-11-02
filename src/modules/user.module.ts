@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import UserController from 'src/controllers/user.controller';
 import UserService from 'src/services/user.service';
 import TokenModule from './token.module';
@@ -7,10 +7,16 @@ import UserRepo from 'src/repositories/user/user.repository';
 import CookieModule from './cookie.module';
 import CheckAuthGuard from 'src/guards/check-auth.guard';
 import CheckAccessTokenGuard from 'src/guards/check-access-token.guard';
+import IsUserValidated from '../middleware/is-user-validated';
+import FirebaseModule from '../database/firebase.module';
 
 @Module({
   controllers: [UserController],
-  providers: [UserService, UserRepo, CheckAuthGuard, CheckAccessTokenGuard],
-  imports: [TokenModule, DatabaseModule, CookieModule],
+  providers: [UserService, IsUserValidated, UserRepo, CheckAuthGuard, CheckAccessTokenGuard],
+  imports: [TokenModule, DatabaseModule, CookieModule, FirebaseModule],
 })
-export default class UserModule {}
+export default class UserModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): any {
+    consumer.apply(IsUserValidated).forRoutes({ path: 'user', method: RequestMethod.PATCH });
+  }
+}
