@@ -17,7 +17,7 @@ export default class CommentRateEntity extends Model {
   @AllowNull(false)
   @PrimaryKey
   @Column
-  public CommentRateEntityId: number;
+  public id: number;
 
   @AllowNull(false)
   @Column

@@ -16,6 +16,8 @@ import { USER_ROLES } from 'src/types/user-roles';
 import { PERMISSIONS } from 'src/utils/define-permissions';
 import { v4 } from 'uuid';
 import UserEntity from '../../models/user.entity';
+import CommentRateEntity from '../../models/comment-rate.entity';
+import { USER_TOKENS } from '../../constants/user.tokens';
 
 @Injectable()
 export default class ArticleRepo {
@@ -25,9 +27,72 @@ export default class ArticleRepo {
     @Inject(ARTICLE_TOKENS.ARTICLE_N_TYPE_REPO) private article_n_tags: typeof ArticleAndTypeEntity,
     @Inject(ARTICLE_TOKENS.ARTICLE_PERMISSION_REPO) private permission: typeof PermissionEntity,
     @Inject(ARTICLE_TOKENS.COMMENT_REPO) private comment: typeof CommentEntity,
+    @Inject(ARTICLE_TOKENS.COMMENT_RATE_REPO) private commentRate: typeof CommentRateEntity,
     @Inject(ARTICLE_TOKENS.ARTICLE_TYPE_REPO) private article_tags: typeof ArticleTypeEntity,
     @Inject(ARTICLE_TOKENS.ARTICLE_RATE_REPO) private article_rate: typeof ArticleRateEntity,
+    @Inject(USER_TOKENS.REPO) private user: typeof UserEntity,
   ) {}
+
+  public async updateCommentRate(rate: RateRequest, commentId: number, userId: number) {
+    const commentRate = await this.commentRate.findOne({ where: { commentId, userId } });
+    if (!commentRate && rate.action !== 'DELETE') {
+      return this.commentRate.create({ commentId, userId, rate: rate.rate });
+    }
+
+    if (rate.action === 'DELETE') {
+      if (commentRate) {
+        await commentRate.destroy();
+      }
+      return { message: 'deleted' };
+    }
+
+    commentRate.rate = rate.rate;
+    await commentRate.save();
+    return commentRate;
+  }
+
+  public async checkPermissionOfUser(userId: number, articleId: number) {
+    return this.access.findOne({
+      where: { userId, articleId },
+      include: [{ model: this.permission, as: 'permission' }],
+    });
+  }
+
+  public async getCommentById(commentId: number) {
+    return this.comment.findOne({ where: { id: commentId } });
+  }
+
+  public async getComments(offset: number, count: number, articleId: number, userId?: number) {
+    return this.comment.findAndCountAll({
+      where: { articleId },
+      offset,
+      limit: count,
+      include: [
+        {
+          model: this.user,
+          as: 'user',
+          attributes: {
+            exclude: ['password', 'createdAt', 'updatedAt'],
+          },
+        },
+        {
+          model: this.commentRate,
+          as: 'commentRate',
+          required: false,
+          where: {
+            userId,
+          },
+          attributes: {
+            exclude: ['updatedAt', 'createdAt'],
+          },
+        },
+      ],
+    });
+  }
+
+  public async createComment(articleId: number, userId: number, content: string) {
+    return this.comment.create({ articleId, userId, content });
+  }
 
   public async getPermissionByName(permissionName: PERMISSIONS) {
     return this.permission.findOne({ where: { name: permissionName } });

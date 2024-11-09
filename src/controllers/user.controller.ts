@@ -105,6 +105,7 @@ export default class UserController {
       forUser: true,
     });
   }
+
   @Post('/login')
   public async login(@Body() body: CreateUserDto, @Res() res: Response) {
     const user = await this.userService.login(body);
