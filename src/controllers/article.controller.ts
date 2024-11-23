@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   MaxFileSizeValidator,
   Param,
@@ -26,6 +27,8 @@ import { Request } from 'src/types/overwritten-request';
 import { RateRequest } from 'src/types/rate-request';
 import { PERMISSIONS } from 'src/utils/define-permissions';
 import { getOffsetAndTagsFromRequest } from 'src/utils/get-offset-n-tags';
+import { USER_ROLES } from '../types/user-roles';
+import { ActiveTypes } from '../types/active-types';
 
 @Controller({
   path: '/article',
@@ -60,13 +63,20 @@ export default class ArticleController {
   }
 
   @Get('search')
-  public async searchArticles(@Query('title') search: string) {
-    return this.articleRepo.getArticlesBySearch(search);
+  public async searchArticles(
+    @Req() req: Request,
+    @Query('to-moderate') toModerate: boolean,
+    @Query('title') search: string,
+  ) {
+    if (req.user?.roleId !== USER_ROLES.MODERATOR && toModerate) throw new ForbiddenException('Forbidden');
+    return this.articleRepo.getArticlesBySearch(search, toModerate);
   }
 
   @Get(':id')
   public async getSingleArticle(@Param('id', ToNumberPipe) id: number, @Req() req: Request) {
     const article = await this.articleRepo.getArticleById(id);
+    if (article?.articleActiveType === ActiveTypes.MODERATION && req.user?.roleId !== USER_ROLES.MODERATOR)
+      throw new ForbiddenException('Forbidden');
     this.articleService.checkIsArticleExist(article);
     let role: ArticleAndAccessEntity = null;
     if (article) {

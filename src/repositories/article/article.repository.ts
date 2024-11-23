@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { Attributes, FindAndCountOptions, Includeable, Op } from 'sequelize';
 import { ARTICLE_TOKENS } from 'src/constants/article.tokens';
 import Article from 'src/dtos/article.dto';
@@ -12,12 +12,12 @@ import PermissionEntity from 'src/models/permission.entity';
 import { ActiveTypes } from 'src/types/active-types';
 import { Request } from 'src/types/overwritten-request';
 import { RateRequest } from 'src/types/rate-request';
-import { USER_ROLES } from 'src/types/user-roles';
 import { PERMISSIONS } from 'src/utils/define-permissions';
 import { v4 } from 'uuid';
 import UserEntity from '../../models/user.entity';
 import CommentRateEntity from '../../models/comment-rate.entity';
 import { USER_TOKENS } from '../../constants/user.tokens';
+import { ModerateArticleDto } from '../../dtos/moderate-article.dto';
 
 @Injectable()
 export default class ArticleRepo {
@@ -32,6 +32,50 @@ export default class ArticleRepo {
     @Inject(ARTICLE_TOKENS.ARTICLE_RATE_REPO) private article_rate: typeof ArticleRateEntity,
     @Inject(USER_TOKENS.REPO) private user: typeof UserEntity,
   ) {}
+
+  public async moderateArticle(articleId: number, moderateArticleDto: ModerateArticleDto) {
+    const article = await this.article.findOne({ where: { id: articleId } });
+    if (!article) throw new BadRequestException('Article not found');
+    article.articleActiveType = moderateArticleDto.action === 'CONFIRMED' ? ActiveTypes.ACTIVE : ActiveTypes.BANNED;
+    await article.save();
+    return { message: 'OK' };
+  }
+
+  public async getArticlesForModeration(
+    search: string,
+    tags: number[],
+    offset: number,
+    limit: number,
+    isPrivate?: boolean,
+    sort: 'DESC' | 'ASC' = 'DESC',
+  ) {
+    const articlesQuery: FindAndCountOptions<Attributes<any>> = {
+      where: {
+        ...this.getSearchByCapitalize(search, 'title'),
+        articleActiveType: ActiveTypes.MODERATION,
+        isPrivate: isPrivate ?? [true, false],
+      },
+      order: [['createdAt', sort]],
+      attributes: {
+        exclude: ['content'],
+      },
+      include: [
+        this.getTagsOfArticleByRelations(tags),
+        {
+          model: this.user,
+          as: 'user',
+          attributes: {
+            exclude: ['password', 'createdAt', 'updatedAt', 'roleId'],
+          },
+        },
+      ],
+      distinct: true,
+      offset,
+      limit,
+    };
+
+    return this.article.findAndCountAll(articlesQuery);
+  }
 
   public async updateCommentRate(rate: RateRequest, commentId: number, userId: number) {
     const commentRate = await this.commentRate.findOne({ where: { commentId, userId } });
@@ -103,14 +147,17 @@ export default class ArticleRepo {
     await this.access.create({ articleId, permissionId: permission.id, userId });
   }
 
-  public async getArticlesBySearch(search: string) {
+  public async getArticlesBySearch(search: string, toModerate?: boolean) {
     if (!search)
       return {
         count: 0,
         rows: [],
       };
     return this.article.findAndCountAll({
-      where: { title: { [Op.like]: `%${search}%` } },
+      where: {
+        title: { [Op.like]: `%${search}%` },
+        articleActiveType: toModerate ? ActiveTypes.MODERATION : ActiveTypes.ACTIVE,
+      },
       attributes: {
         exclude: [
           'articleActiveType',
@@ -249,16 +296,11 @@ export default class ArticleRepo {
     },
     sort: 'DESC' | 'ASC' = 'DESC',
   ) {
-    const isUserOptionsWithPrivateProperty = userOptions.forUser && userOptions.isPrivate !== undefined;
     const articlesQuery: FindAndCountOptions<Attributes<any>> = {
       where: {
         ...this.getSearchByCapitalize(search, 'title'),
-        isPrivate: {
-          [Op.in]:
-            !isUserOptionsWithPrivateProperty || userOptions.user?.roleId === USER_ROLES.MODERATOR
-              ? [true, false]
-              : [isUserOptionsWithPrivateProperty ? userOptions.isPrivate : false],
-        },
+        articleActiveType: ActiveTypes.ACTIVE,
+        isPrivate: false,
       },
       order: [['createdAt', sort]],
       include: [this.getTagsOfArticleByRelations(tags)],
@@ -268,15 +310,28 @@ export default class ArticleRepo {
     };
 
     if (userOptions.forUser) {
-      articlesQuery.where = {
-        [Op.or]: [{ ...articlesQuery.where }, { ...articlesQuery.where, userId: userOptions.user.id }],
-      };
+      if (userOptions.user.id && userOptions.user?.roleId) {
+        articlesQuery.where = {
+          ...articlesQuery.where,
+          articleActiveType: {
+            [Op.in]: [ActiveTypes.ACTIVE, ActiveTypes.BANNED, ActiveTypes.MODERATION],
+          },
+          isPrivate: {
+            [Op.in]: userOptions.isPrivate === undefined ? [true, false] : [userOptions.isPrivate],
+          },
+        };
+      } else {
+        articlesQuery.where = {
+          ...articlesQuery.where,
+          isPrivate: false,
+        };
+      }
+
       articlesQuery.where = {
         ...articlesQuery.where,
-        isPrivate: userOptions.isPrivate === undefined ? { [Op.in]: [true, false] } : userOptions.isPrivate,
+        userId: userOptions.user.id,
       };
       (articlesQuery.include as Includeable[]).push(this.getAccessOfArticle(userOptions.user.id, true));
-      console.log(articlesQuery);
     }
 
     const articles = await this.article.findAndCountAll(articlesQuery);

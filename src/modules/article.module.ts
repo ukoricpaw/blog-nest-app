@@ -24,6 +24,7 @@ export default class ArticleModule implements NestModule {
       .forRoutes(
         { path: 'article/:id', method: RequestMethod.GET },
         { path: 'article', method: RequestMethod.GET },
+        { path: 'article/search', method: RequestMethod.GET },
         { path: 'comment/:articleId', method: RequestMethod.GET },
       );
 
