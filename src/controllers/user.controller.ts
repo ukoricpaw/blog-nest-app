@@ -7,8 +7,10 @@ import {
   ParseFilePipe,
   Patch,
   Post,
+  Query,
   Req,
   Res,
+  UnauthorizedException,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -24,6 +26,10 @@ import CookieService from 'src/services/cookie.service';
 import TokenService from 'src/services/token.service';
 import UserService from 'src/services/user.service';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { getOffsetAndTagsFromRequest } from '../utils/get-offset-n-tags';
+import ArticleRepo from '../repositories/article/article.repository';
+import { USER_ROLES } from '../types/user-roles';
+import { ModerateArticleDto } from '../dtos/moderate-article.dto';
 
 @Controller({
   path: '/user',
@@ -34,6 +40,7 @@ export default class UserController {
     private userService: UserService,
     private tokenService: TokenService,
     private cookieService: CookieService,
+    private articleRepo: ArticleRepo,
   ) {}
 
   public async getUserResponse(data: UserEntity, res: Response) {
@@ -82,6 +89,51 @@ export default class UserController {
   @Get('/:id')
   public async getUserInfo(@Param('id') id: string) {
     return this.userService.getUserById(id);
+  }
+
+  @Get('/:id/articles')
+  public async getUserArticles(
+    @Param('id') id: string,
+    @Query('search') search: string,
+    @Query('tags') tags: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('is-private') isPrivate: boolean,
+    @Req() req: OverwrittenRequest,
+  ) {
+    const { offset, resTags, resLimit } = getOffsetAndTagsFromRequest(page, limit, tags);
+    return this.articleRepo.getArticles(search ?? '', resTags, offset, resLimit, {
+      user: req.user?.id == Number(id) ? req.user : ({ id } as any),
+      isPrivate: req.user?.id == Number(id) ? isPrivate : false,
+      forUser: true,
+    });
+  }
+
+  @Get('/articles/moderate')
+  public async getArticlesForModeration(
+    @Query('search') search: string,
+    @Query('tags') tags: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('is-private') isPrivate: boolean,
+    @Req() req: OverwrittenRequest,
+  ) {
+    console.log(req.user);
+    if (!req || !(req.user?.roleId === USER_ROLES.MODERATOR))
+      throw new UnauthorizedException('No access to this resource');
+    const { offset, resTags, resLimit } = getOffsetAndTagsFromRequest(page, limit, tags);
+    return this.articleRepo.getArticlesForModeration(search ?? '', resTags, offset, resLimit, isPrivate);
+  }
+
+  @Patch('/articles/moderate/:id')
+  public async moderateArticle(
+    @Param('id') articleId: number,
+    @Req() req: OverwrittenRequest,
+    @Body() moderateArticleDto: ModerateArticleDto,
+  ) {
+    if (!req || !(req.user?.roleId === USER_ROLES.MODERATOR))
+      throw new UnauthorizedException('No access to this resource');
+    return this.articleRepo.moderateArticle(articleId, moderateArticleDto);
   }
 
   @Post('/login')

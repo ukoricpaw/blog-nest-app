@@ -8,6 +8,7 @@ import {
   ForeignKey,
   BelongsTo,
   HasMany,
+  DataType,
 } from 'sequelize-typescript';
 import ArticleEntity from './article.entity';
 import UserEntity from './user.entity';
@@ -32,9 +33,12 @@ export default class CommentEntity extends Model {
   @Column
   public userId: number;
 
+  @Column(DataType.TEXT)
+  public content: string;
+
   @BelongsTo(() => UserEntity)
   public user: UserEntity;
 
   @HasMany(() => CommentRateEntity)
-  public CommentRateEntitys: CommentRateEntity[];
+  public commentRate: CommentRateEntity[];
 }

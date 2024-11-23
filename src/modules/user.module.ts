@@ -9,14 +9,23 @@ import CheckAuthGuard from 'src/guards/check-auth.guard';
 import CheckAccessTokenGuard from 'src/guards/check-access-token.guard';
 import IsUserValidated from '../middleware/is-user-validated';
 import FirebaseModule from '../database/firebase.module';
+import ArticleRepo from '../repositories/article/article.repository';
+import CheckUserMiddleware from '../middleware/check-user.middleware';
 
 @Module({
   controllers: [UserController],
-  providers: [UserService, IsUserValidated, UserRepo, CheckAuthGuard, CheckAccessTokenGuard],
+  providers: [UserService, IsUserValidated, UserRepo, CheckAuthGuard, CheckAccessTokenGuard, ArticleRepo],
   imports: [TokenModule, DatabaseModule, CookieModule, FirebaseModule],
 })
 export default class UserModule implements NestModule {
   configure(consumer: MiddlewareConsumer): any {
     consumer.apply(IsUserValidated).forRoutes({ path: 'user', method: RequestMethod.PATCH });
+    consumer
+      .apply(CheckUserMiddleware)
+      .forRoutes(
+        { path: 'user/:id/articles', method: RequestMethod.GET },
+        { path: 'user/articles/moderate', method: RequestMethod.GET },
+        { path: 'user/articles/moderate/:id', method: RequestMethod.PATCH },
+      );
   }
 }

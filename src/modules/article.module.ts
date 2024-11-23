@@ -9,17 +9,24 @@ import FirebaseModule from 'src/database/firebase.module';
 import IsUserValidated from 'src/middleware/is-user-validated';
 import ImageController from 'src/controllers/image.controller';
 import CommentController from 'src/controllers/comment.controller';
+import CommentService from '../services/comment.service';
+import UserRepo from '../repositories/user/user.repository';
 
 @Module({
   controllers: [ArticleController, ImageController, CommentController],
-  providers: [ArticleRepo, ArticleService, CheckUserMiddleware],
+  providers: [ArticleRepo, ArticleService, UserRepo, CheckUserMiddleware, CommentService],
   imports: [DatabaseModule, TokenModule, FirebaseModule],
 })
 export default class ArticleModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(CheckUserMiddleware)
-      .forRoutes({ path: 'article/:id', method: RequestMethod.GET }, { path: 'article', method: RequestMethod.GET });
+      .forRoutes(
+        { path: 'article/:id', method: RequestMethod.GET },
+        { path: 'article', method: RequestMethod.GET },
+        { path: 'article/search', method: RequestMethod.GET },
+        { path: 'comment/:articleId', method: RequestMethod.GET },
+      );
 
     consumer
       .apply(IsUserValidated)
@@ -32,6 +39,10 @@ export default class ArticleModule implements NestModule {
         { path: 'invite/:link', method: RequestMethod.GET },
         { path: 'article/:id/permission', method: RequestMethod.POST },
         { path: 'article/:id/permission/:userId', method: RequestMethod.DELETE },
+        { path: 'comment/:articleId', method: RequestMethod.POST },
+        { path: 'comment/:articleId/:commentId', method: RequestMethod.DELETE },
+        { path: 'comment/:articleId/:commentId', method: RequestMethod.PUT },
+        { path: 'comment/:commentId/rate', method: RequestMethod.PATCH },
       );
   }
 }
