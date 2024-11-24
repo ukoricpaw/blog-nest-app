@@ -38,6 +38,12 @@ export default class ArticleEntity extends Model {
   @Column
   public userId: number;
 
+  @Column
+  public likes: number;
+
+  @Column
+  public dislikes: number;
+
   @AllowNull(false)
   @Column
   public isPrivate: boolean;
