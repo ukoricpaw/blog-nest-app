@@ -124,7 +124,7 @@ export default class ArticleRepo {
           as: 'commentRate',
           required: false,
           where: {
-            userId,
+            userId: userId ?? null,
           },
           attributes: {
             exclude: ['updatedAt', 'createdAt'],

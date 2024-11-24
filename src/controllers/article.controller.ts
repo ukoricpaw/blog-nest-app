@@ -73,9 +73,16 @@ export default class ArticleController {
   }
 
   @Get(':id')
-  public async getSingleArticle(@Param('id', ToNumberPipe) id: number, @Req() req: Request) {
+  public async getSingleArticle(
+    @Param('id', ToNumberPipe) id: number,
+    @Query('to-edit') toEdit: boolean,
+    @Req() req: Request,
+  ) {
     const article = await this.articleRepo.getArticleById(id);
-    if (article?.articleActiveType === ActiveTypes.MODERATION && req.user?.roleId !== USER_ROLES.MODERATOR)
+    if (
+      (toEdit && article?.userId !== req.user.id) ||
+      (article?.articleActiveType === ActiveTypes.MODERATION && req.user?.roleId !== USER_ROLES.MODERATOR)
+    )
       throw new ForbiddenException('Forbidden');
     this.articleService.checkIsArticleExist(article);
     let role: ArticleAndAccessEntity = null;
@@ -144,6 +151,7 @@ export default class ArticleController {
     @Req() req: Request,
   ) {
     const articleResult = await this.articleRepo.getArticleById(id);
+    if (articleResult?.articleActiveType === ActiveTypes.MODERATION) throw new ForbiddenException('Forbidden');
     const role = await this.articleService.checkRolesOfArticle(articleResult, req.user);
     return this.articleService.modifyArticle(article, thumbnail?.buffer, articleResult, role);
   }

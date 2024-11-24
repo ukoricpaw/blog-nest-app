@@ -10,6 +10,7 @@ import { Request } from 'src/types/overwritten-request';
 import { USER_ROLES } from 'src/types/user-roles';
 import { PERMISSIONS } from 'src/utils/define-permissions';
 import { v4 } from 'uuid';
+import { ActiveTypes } from '../types/active-types';
 
 @Injectable()
 export default class ArticleService {
@@ -92,6 +93,7 @@ export default class ArticleService {
       await this.articleRepo.deleteArticleTags(article.id);
       await this.articleRepo.createRelatedArticleTags(tags, article.id);
     }
+    article.articleActiveType = ActiveTypes.MODERATION;
     await article.save();
     return article;
   }

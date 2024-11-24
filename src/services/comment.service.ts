@@ -40,7 +40,7 @@ export default class CommentService {
       this.articleRepo.checkPermissionOfUser(userId, articleId),
     ]);
 
-    return { roleId: user.roleId, permission: permission.permission.name };
+    return { roleId: user.roleId, permission: permission?.permission?.name };
   }
 
   public async getComments(page: number, articleId: number, userId?: number) {
@@ -71,7 +71,7 @@ export default class CommentService {
   }
 
   public async rateComment(commentId: number, userId: number, rate: RateRequest) {
-    if (!rate.rate || !rate.action) throw new BadRequestException('Bad request');
+    if (rate.rate === undefined || !rate.action) throw new BadRequestException('Bad request');
     return this.articleRepo.updateCommentRate(rate, commentId, userId);
   }
 }
