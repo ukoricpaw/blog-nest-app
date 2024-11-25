@@ -99,6 +99,7 @@ export default class UserController {
     @Query('page') page: number,
     @Query('limit') limit: number,
     @Query('is-private') isPrivate: boolean,
+    @Query('status') status: string,
     @Req() req: OverwrittenRequest,
   ) {
     const { offset, resTags, resLimit } = getOffsetAndTagsFromRequest(page, limit, tags);
@@ -106,6 +107,7 @@ export default class UserController {
       user: req.user?.id == Number(id) ? req.user : ({ id } as any),
       isPrivate: req.user?.id == Number(id) ? isPrivate : false,
       forUser: true,
+      status,
     });
   }
 
@@ -118,7 +120,6 @@ export default class UserController {
     @Query('is-private') isPrivate: boolean,
     @Req() req: OverwrittenRequest,
   ) {
-    console.log(req.user);
     if (!req || !(req.user?.roleId === USER_ROLES.MODERATOR))
       throw new UnauthorizedException('No access to this resource');
     const { offset, resTags, resLimit } = getOffsetAndTagsFromRequest(page, limit, tags);
