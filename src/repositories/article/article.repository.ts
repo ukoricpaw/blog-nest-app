@@ -130,6 +130,7 @@ export default class ArticleRepo {
 
   public async getComments(offset: number, count: number, articleId: number, userId?: number) {
     return this.comment.findAndCountAll({
+      order: [['createdAt', 'DESC']],
       where: { articleId },
       offset,
       limit: count,
