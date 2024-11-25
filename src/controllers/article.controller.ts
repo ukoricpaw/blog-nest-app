@@ -131,9 +131,13 @@ export default class ArticleController {
     return { message: 'viewed' };
   }
 
+  @Get(':id/rate')
+  public async getArticleRate(@Param('id') articleId: number, @Req() req: Request) {
+    return this.articleRepo.getArticleRate(articleId, req.user?.id);
+  }
+
   @Post(':id/rate')
   public async rateArticle(@Param('id') articleId: number, @Body() rate: RateRequest, @Req() req: Request) {
-    console.log(req.user);
     return this.articleRepo.addOrChangeRateToArticle(rate, articleId, req.user.id);
   }
 

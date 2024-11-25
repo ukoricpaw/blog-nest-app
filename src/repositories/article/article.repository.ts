@@ -33,6 +33,28 @@ export default class ArticleRepo {
     @Inject(USER_TOKENS.REPO) private user: typeof UserEntity,
   ) {}
 
+  public async getArticleRate(articleId: number, userId: number) {
+    const article = await this.article.findOne({
+      where: { id: articleId },
+      include: [
+        {
+          model: this.article_rate,
+          as: 'articleRates',
+          required: false,
+          where: {
+            userId: userId ?? null,
+          },
+        },
+      ],
+    });
+    if (!article) throw new BadRequestException("Article doesn't exist");
+    return {
+      dislikes: article.dislikes,
+      likes: article.likes,
+      articleRate: article.articleRates,
+    };
+  }
+
   public async moderateArticle(articleId: number, moderateArticleDto: ModerateArticleDto) {
     const article = await this.article.findOne({ where: { id: articleId } });
     if (!article) throw new BadRequestException('Article not found');
@@ -108,6 +130,7 @@ export default class ArticleRepo {
 
   public async getComments(offset: number, count: number, articleId: number, userId?: number) {
     return this.comment.findAndCountAll({
+      order: [['createdAt', 'DESC']],
       where: { articleId },
       offset,
       limit: count,
@@ -179,17 +202,39 @@ export default class ArticleRepo {
   }
 
   public async addOrChangeRateToArticle(rate: RateRequest, articleId: number, userId: number) {
-    const articleRate = await this.article_rate.findOne({ where: { userId, articleId } });
-    if (rate.action === 'ADD') {
+    const [articleRate, article] = await Promise.all([
+      this.article_rate.findOne({ where: { userId, articleId } }),
+      this.article.findOne({ where: { id: articleId } }),
+    ]);
+
+    if (rate.action === 'ADD' && articleRate?.rate !== rate.rate) {
       if (!articleRate) {
+        if (rate.rate === 0) {
+          article.dislikes += 1;
+        } else {
+          article.likes += 1;
+        }
         await this.article_rate.create({ userId, articleId, rate: rate.rate });
-      } else if (articleRate && articleRate.rate !== rate.rate) {
+      } else if (articleRate) {
+        if (rate.rate === 0) {
+          article.dislikes += 1;
+          article.likes -= 1;
+        } else {
+          article.dislikes -= 1;
+          article.likes += 1;
+        }
         articleRate.rate = rate.rate;
         await articleRate.save();
       }
-    } else if (articleRate && rate.action === 'DELETE') {
+    } else if (articleRate && rate.action === 'DELETE' && articleRate?.rate === rate.rate) {
+      if (rate.rate === 0) {
+        article.dislikes -= 1;
+      } else {
+        article.likes -= 1;
+      }
       await articleRate.destroy();
     }
+    await article.save();
     return {
       action: rate.action,
       rate: rate.rate,
@@ -293,6 +338,7 @@ export default class ArticleRepo {
       user: Request['user'] | undefined;
       isPrivate?: boolean;
       forUser?: boolean;
+      status?: string;
     },
     sort: 'DESC' | 'ASC' = 'DESC',
   ) {
@@ -310,11 +356,14 @@ export default class ArticleRepo {
     };
 
     if (userOptions.forUser) {
-      if (userOptions.user.id && userOptions.user?.roleId) {
+      if (userOptions.user.id && userOptions.user?.roleId !== undefined) {
         articlesQuery.where = {
           ...articlesQuery.where,
           articleActiveType: {
-            [Op.in]: [ActiveTypes.ACTIVE, ActiveTypes.BANNED, ActiveTypes.MODERATION],
+            [Op.in]:
+              userOptions.status !== undefined
+                ? [Number(userOptions.status)]
+                : [ActiveTypes.ACTIVE, ActiveTypes.BANNED, ActiveTypes.MODERATION],
           },
           isPrivate: {
             [Op.in]: userOptions.isPrivate === undefined ? [true, false] : [userOptions.isPrivate],
@@ -360,7 +409,14 @@ export default class ArticleRepo {
 
   public async createArticle(article: Article) {
     const inviteLink = v4();
-    return this.article.create({ ...article, qtyOfViews: 0, articleActiveType: ActiveTypes.MODERATION, inviteLink });
+    return this.article.create({
+      ...article,
+      qtyOfViews: 0,
+      dislikes: 0,
+      likes: 0,
+      articleActiveType: ActiveTypes.MODERATION,
+      inviteLink,
+    });
   }
 
   public async createRelatedArticleTags(tags: number[], articleId: number) {

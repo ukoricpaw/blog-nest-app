@@ -26,6 +26,7 @@ export default class ArticleModule implements NestModule {
         { path: 'article', method: RequestMethod.GET },
         { path: 'article/search', method: RequestMethod.GET },
         { path: 'comment/:articleId', method: RequestMethod.GET },
+        { path: 'article/:id/rate', method: RequestMethod.GET },
       );
 
     consumer
